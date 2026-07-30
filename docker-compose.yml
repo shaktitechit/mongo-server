@@ -1,0 +1,153 @@
+# =============================================================================
+# MongoDB Server — Docker Compose
+#
+# Standalone MongoDB Community infrastructure shared by multiple applications.
+# Designed to run unchanged on macOS (local) and Ubuntu VPS (production).
+#
+# Future services (Redis, Prometheus, Grafana, Nginx) can be added as sibling
+# services on the same `mongo-net` network without restructuring this project.
+# =============================================================================
+
+name: mongodb-server
+
+services:
+  # ---------------------------------------------------------------------------
+  # MongoDB Community Server
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: ${MONGO_IMAGE:-mongo:8.2}
+    container_name: mongodb
+    restart: unless-stopped
+    # Prefer host bind 127.0.0.1 in production (see MONGO_HOST_BIND in .env).
+    ports:
+      - "${MONGO_HOST_BIND:-127.0.0.1}:${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-admin}
+      # Passed through for init/init.js (process.env.*)
+      OPMS_DB_NAME: ${OPMS_DB_NAME:-opms}
+      OPMS_DB_USER: ${OPMS_DB_USER:-opms_user}
+      OPMS_DB_PASSWORD: ${OPMS_DB_PASSWORD}
+      CRM_DB_NAME: ${CRM_DB_NAME:-crm}
+      CRM_DB_USER: ${CRM_DB_USER:-crm_user}
+      CRM_DB_PASSWORD: ${CRM_DB_PASSWORD}
+      WEBSITE_DB_NAME: ${WEBSITE_DB_NAME:-website}
+      WEBSITE_DB_USER: ${WEBSITE_DB_USER:-website_user}
+      WEBSITE_DB_PASSWORD: ${WEBSITE_DB_PASSWORD}
+      INVENTORY_DB_NAME: ${INVENTORY_DB_NAME:-inventory}
+      INVENTORY_DB_USER: ${INVENTORY_DB_USER:-inventory_user}
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD}
+      ANALYTICS_DB_NAME: ${ANALYTICS_DB_NAME:-analytics}
+      ANALYTICS_DB_USER: ${ANALYTICS_DB_USER:-analytics_user}
+      ANALYTICS_DB_PASSWORD: ${ANALYTICS_DB_PASSWORD}
+      POWERAPP_DB_NAME: ${POWERAPP_DB_NAME:-powerapp}
+      POWERAPP_DB_USER: ${POWERAPP_DB_USER:-powerapp_user}
+      POWERAPP_DB_PASSWORD: ${POWERAPP_DB_PASSWORD}
+    volumes:
+      # Persistent database files (survives container recreate)
+      - ./data:/data/db
+      # Server configuration (read-only)
+      - ./config/mongod.conf:/etc/mongod.conf:ro
+      # First-boot initialization (databases + app users)
+      - ./init:/docker-entrypoint-initdb.d:ro
+      # Host-mounted backups for scripts/backup.sh & restore.sh
+      - ./backups:/backups
+      # Optional dedicated log directory (uncomment if you prefer file logs on host)
+      # - ./logs:/var/log/mongodb
+    # Pass flags only so the official image entrypoint can run first-boot init.
+    command: ["--config", "/etc/mongod.conf"]
+    networks:
+      - mongo-net
+    healthcheck:
+      # Use container env ($$) so Compose does not bake host-interpolated secrets
+      # into the healthcheck, and so shell-exported overrides cannot desync it.
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    # Resource limits — tune for your VPS. Commented defaults are safe for small hosts.
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "2.0"
+    #       memory: 2G
+    #     reservations:
+    #       cpus: "0.5"
+    #       memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Daily backup scheduler
+  # Runs mongodump once per day (default 02:00 UTC) and deletes archives older
+  # than BACKUP_RETENTION_DAYS (default 30). Shares ./backups with mongodb.
+  # ---------------------------------------------------------------------------
+  mongo-backup:
+    image: ${MONGO_IMAGE:-mongo:8.2}
+    container_name: mongo-backup
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_SCHEDULE_HOUR: ${BACKUP_SCHEDULE_HOUR:-2}
+      BACKUP_SCHEDULE_MINUTE: ${BACKUP_SCHEDULE_MINUTE:-0}
+      # Set to "true" to take one backup immediately when the container starts
+      BACKUP_RUN_ON_STARTUP: ${BACKUP_RUN_ON_STARTUP:-false}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/scheduled-backup.sh:/usr/local/bin/scheduled-backup.sh:ro
+      - ./scripts/backup-scheduler-entrypoint.sh:/usr/local/bin/backup-scheduler-entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/usr/local/bin/backup-scheduler-entrypoint.sh"]
+    networks:
+      - mongo-net
+
+  # ===========================================================================
+  # FUTURE EXPANSION (examples — uncomment / extend when needed)
+  # Keep each concern as its own service on `mongo-net`.
+  # ===========================================================================
+  #
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: redis
+  #   restart: unless-stopped
+  #   networks: [mongo-net]
+  #   volumes: [./data/redis:/data]
+  #
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   restart: unless-stopped
+  #   networks: [mongo-net]
+  #   volumes: [./monitoring/prometheus:/etc/prometheus:ro]
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   restart: unless-stopped
+  #   networks: [mongo-net]
+  #   volumes: [./monitoring/grafana:/var/lib/grafana]
+  #
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: nginx
+  #   restart: unless-stopped
+  #   networks: [mongo-net]
+  #   ports: ["127.0.0.1:80:80", "127.0.0.1:443:443"]
+  #   volumes: [./config/nginx:/etc/nginx/conf.d:ro]
+
+networks:
+  mongo-net:
+    name: mongo-net
+    driver: bridge
+    # Applications on the same Docker host can join this network and connect to
+    # hostname `mongodb:27017` without publishing the port publicly.
