@@ -46,9 +46,13 @@
    * Creating a user implicitly creates the database.
    */
   function provisionAppDatabase({ nameEnv, userEnv, passwordEnv }) {
-    const dbName = requireEnv(nameEnv);
-    const username = requireEnv(userEnv);
-    const password = requireEnv(passwordEnv);
+    const dbName = process.env[nameEnv];
+    const username = process.env[userEnv];
+    const password = process.env[passwordEnv];
+
+    if (!dbName || !username || !password) {
+      return;
+    }
 
     const appDb = db.getSiblingDB(dbName);
 
