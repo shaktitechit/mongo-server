@@ -102,6 +102,8 @@ docker compose exec -T mongodb mongorestore \
   --username="${MONGO_ROOT_USERNAME}" \
   --password="${MONGO_ROOT_PASSWORD}" \
   --authenticationDatabase=admin \
+  --nsExclude="*.system.users" \
+  --nsExclude="admin.system.*" \
   --gzip \
   --archive="${CONTAINER_ARCHIVE}" \
   --drop

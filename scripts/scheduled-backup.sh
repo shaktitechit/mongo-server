@@ -49,7 +49,7 @@ echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Backup complete (${SIZE}): ${ARCHIVE_NA
 
 if [[ "${RETENTION_DAYS}" =~ ^[0-9]+$ ]] && [[ "${RETENTION_DAYS}" -gt 0 ]]; then
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Pruning backups older than ${RETENTION_DAYS} days"
-  find "${BACKUP_DIR}" -type f -name 'mongodb_full_*.archive.gz' -mtime "+${RETENTION_DAYS}" -print -delete || true
+  find "${BACKUP_DIR}" -type f \( -name 'mongodb_full_*.archive.gz' -o -name 'mongodb_full_*.archive.gz.gpg' \) -mtime "+${RETENTION_DAYS}" -print -delete || true
 fi
 
 echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] Done"

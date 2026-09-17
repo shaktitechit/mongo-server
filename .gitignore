@@ -6,6 +6,7 @@
 !.env.example
 *.pem
 *.key
+config/mongo-keyfile
 secrets/
 credentials/
 

@@ -103,7 +103,16 @@ docker compose exec -T mongodb mongosh \
 
 ---
 
-## 5. Backup
+## 5. Replica Set Initialization (Oplog & PITR)
+
+```bash
+# Initialize single-node replica set rs0 (enables Oplog, Transactions, PITR)
+./scripts/init-replica-set.sh
+```
+
+---
+
+## 6. Backup & Verification
 
 ### Automatic (recommended)
 
@@ -118,15 +127,6 @@ docker compose up -d
 docker compose logs -f mongo-backup
 ```
 
-Configure in `.env`:
-
-```env
-BACKUP_RETENTION_DAYS=30
-BACKUP_SCHEDULE_HOUR=2
-BACKUP_SCHEDULE_MINUTE=0
-BACKUP_RUN_ON_STARTUP=false
-```
-
 ### Manual
 
 ```bash
@@ -135,19 +135,21 @@ BACKUP_RUN_ON_STARTUP=false
 
 # Named backup (useful before upgrades)
 ./scripts/backup.sh --name pre-upgrade
-
-# Help
-./scripts/backup.sh --help
 ```
 
-**Output:**
+### Automated Backup Verification (Dry-run restore test)
 
-- Automatic: `backups/mongodb_full_<UTC-timestamp>_daily.archive.gz`
-- Manual: `backups/mongodb_full_<UTC-timestamp>[_name].archive.gz`
+```bash
+# Verify latest backup archive
+./scripts/verify-backup.sh
+
+# Verify a specific backup archive
+./scripts/verify-backup.sh backups/mongodb_full_20260917T120000Z.archive.gz
+```
 
 ---
 
-## 6. Restore
+## 7. Restore
 
 ```bash
 # Interactive (type "restore" to confirm)
@@ -157,26 +159,42 @@ BACKUP_RUN_ON_STARTUP=false
 ./scripts/restore.sh backups/mongodb_full_YYYYMMDDThhmmssZ.archive.gz --yes
 ```
 
-> Uses `mongorestore --drop` — existing collections may be overwritten. Take a fresh backup first.
+---
 
-Archive files **must** live under `./backups/` (mounted into the container).
+## 8. Frontend Ops Console & Prometheus Metrics
+
+- **MongoDB Ops Console**: `http://127.0.0.1:8002`
+- **Prometheus Metrics**: `http://127.0.0.1:9216/metrics`
+
+```bash
+# Test frontend dashboard console endpoint
+curl -I http://127.0.0.1:8002
+
+# Query Prometheus metrics endpoint
+curl http://127.0.0.1:9216/metrics
+```
 
 ---
 
-## 7. Create a new database & user
+## 9. Create a new database & user
 
 `init/init.js` runs **only on first boot** (empty `./data`). For later databases:
 
 ```bash
 ./scripts/create-user.sh <db_name> <username> <password>
-
-# Example
-./scripts/create-user.sh reporting reporting_user "$(openssl rand -hex 32)"
 ```
 
-Then add matching variables to `.env` / `.env.example` for documentation.
+---
 
-If the user already exists, the script **updates** password and roles (`readWrite` on that DB only).
+## 10. Script Cheat Sheet
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/init-replica-set.sh` | Initialize Replica Set `rs0` (Oplog/Transactions) |
+| `./scripts/backup.sh` | Manual full backup (supports optional GPG AES-256) |
+| `./scripts/verify-backup.sh` | Automated dry-run integrity verification of backup archive |
+| `./scripts/restore.sh <file>` | Restore database from archive |
+| `./scripts/create-user.sh <db> <user> <pass>` | Create/update application user |
 
 ---
 
