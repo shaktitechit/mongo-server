@@ -660,7 +660,9 @@ export default function MongoDashboard() {
                 </div>
                 <div className="text-2xl font-bold text-white">
                   {serverStatus?.connections?.current || 0}{" "}
-                  <span className="text-xs font-normal text-slate-400">/ {serverStatus?.connections?.available || 200}</span>
+                  <span className="text-xs font-normal text-slate-400">
+                    / {(serverStatus?.connections?.current || 0) + (serverStatus?.connections?.available || 0)}
+                  </span>
                 </div>
                 <div className="text-xs text-emerald-400 flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Pool Healthy

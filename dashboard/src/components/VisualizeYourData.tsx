@@ -26,6 +26,23 @@ interface VisualizeYourDataProps {
   onExplore?: () => void;
 }
 
+function formatBytesRate(bytesPerSec: number): string {
+  if (bytesPerSec >= 1048576) {
+    return `${(bytesPerSec / 1048576).toFixed(2)} MB/s`;
+  }
+  if (bytesPerSec >= 1024) {
+    return `${(bytesPerSec / 1024).toFixed(2)} KB/s`;
+  }
+  return `${bytesPerSec.toFixed(2)} B/s`;
+}
+
+function formatOpsRate(rate: number): string {
+  if (rate >= 1000) {
+    return `${(rate / 1000).toFixed(1)}k/s`;
+  }
+  return `${rate.toFixed(1)}/s`;
+}
+
 function generateTimeframePoints(tf: Timeframe, baseSizeMB: number): MetricPoint[] {
   const now = Date.now();
   const points: MetricPoint[] = [];
@@ -252,6 +269,10 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
     "30D": "Last 30 days",
   };
 
+  // Compute dynamic scale labels for Y-axis bounds
+  const maxRwValue = Math.max(...metricsData.map((d) => Math.max(d.reads, d.writes)), currentMetrics.readsRate, currentMetrics.writesRate, 0.1);
+  const maxNetValue = Math.max(...metricsData.map((d) => Math.max(d.netIn, d.netOut)), currentMetrics.netInRate, currentMetrics.netOutRate, 1024);
+
   return (
     <div className="w-full bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-xs mb-6 text-slate-800 transition-all">
       <div className="flex flex-col lg:flex-row lg:items-center gap-6">
@@ -317,12 +338,12 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
                   <span className="flex items-center gap-1 text-[11px]">
                     <span className="w-2 h-2 rounded-full bg-[#0068FF] inline-block"></span>
                     <span>R</span>
-                    <span className="font-normal text-slate-600">{currentMetrics.readsRate}</span>
+                    <span className="font-normal text-slate-600">{formatOpsRate(currentMetrics.readsRate)}</span>
                   </span>
                   <span className="flex items-center gap-1 text-[11px]">
                     <span className="w-2 h-2 rounded-full bg-[#FF6B00] inline-block"></span>
                     <span>W</span>
-                    <span className="font-normal text-slate-600">{currentMetrics.writesRate}</span>
+                    <span className="font-normal text-slate-600">{formatOpsRate(currentMetrics.writesRate)}</span>
                   </span>
                 </div>
                 <button
@@ -342,7 +363,7 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
             {/* Sparkline Y-axis Scale & Chart */}
             <div className="relative h-[55px] w-full mt-1">
               <span className="absolute left-0 top-0 text-[9px] text-slate-400 font-mono">
-                0.1/s
+                {formatOpsRate(maxRwValue)}
               </span>
               <div className="w-full h-full pt-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -359,7 +380,7 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
                     </defs>
                     <Tooltip
                       contentStyle={{ fontSize: "11px", padding: "4px 8px", borderRadius: "4px" }}
-                      formatter={(val: any) => [`${val ?? 0}/s`, "Rate"]}
+                      formatter={(val: any) => [formatOpsRate(Number(val ?? 0)), "Rate"]}
                       labelFormatter={(label: any) => `Time: ${label}`}
                     />
                     <Area
@@ -470,12 +491,12 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
                   <span className="flex items-center gap-1 text-[11px]">
                     <span className="w-2 h-2 rounded-full bg-[#FF6B00] inline-block"></span>
                     <span>In</span>
-                    <span className="font-normal text-slate-600">{currentMetrics.netInRate} B/s</span>
+                    <span className="font-normal text-slate-600">{formatBytesRate(currentMetrics.netInRate)}</span>
                   </span>
                   <span className="flex items-center gap-1 text-[11px]">
                     <span className="w-2 h-2 rounded-full bg-[#0068FF] inline-block"></span>
                     <span>Out</span>
-                    <span className="font-normal text-slate-600">{currentMetrics.netOutRate} B/s</span>
+                    <span className="font-normal text-slate-600">{formatBytesRate(currentMetrics.netOutRate)}</span>
                   </span>
                 </div>
                 <button
@@ -494,7 +515,7 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
             {/* Sparkline Y-axis Scale & Chart */}
             <div className="relative h-[55px] w-full mt-1">
               <span className="absolute left-0 top-0 text-[9px] text-slate-400 font-mono">
-                885.62 B/s
+                {formatBytesRate(maxNetValue)}
               </span>
               <div className="w-full h-full pt-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -511,7 +532,7 @@ export default function VisualizeYourData({ onDismiss, onExplore }: VisualizeYou
                     </defs>
                     <Tooltip
                       contentStyle={{ fontSize: "11px", padding: "4px 8px", borderRadius: "4px" }}
-                      formatter={(val: any, name: any) => [`${val ?? 0} B/s`, name === "netIn" ? "Network In" : "Network Out"]}
+                      formatter={(val: any, name: any) => [formatBytesRate(Number(val ?? 0)), name === "netIn" ? "Network In" : "Network Out"]}
                       labelFormatter={(label: any) => `Time: ${label}`}
                     />
                     <Area
