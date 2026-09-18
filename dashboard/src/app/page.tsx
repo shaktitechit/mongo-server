@@ -39,6 +39,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import ConfirmationModal from "@/components/ConfirmationModal";
+import VisualizeYourData from "@/components/VisualizeYourData";
+import ChartsExplorerModal from "@/components/ChartsExplorerModal";
 
 interface ServerStatus {
   status: string;
@@ -87,6 +89,7 @@ export default function MongoDashboard() {
   const [backupPageSize, setBackupPageSize] = useState(10);
 
   // Modals & Action States
+  const [showChartsModal, setShowChartsModal] = useState(false);
   const [showNewDbModal, setShowNewDbModal] = useState(false);
   const [newDbName, setNewDbName] = useState("");
   const [newDbUser, setNewDbUser] = useState("");
@@ -634,6 +637,9 @@ export default function MongoDashboard() {
         {/* TAB 1: OVERVIEW */}
         {activeTab === "overview" && (
           <div className="space-y-6">
+            {/* MongoDB Atlas Sparkline Metrics Banner */}
+            <VisualizeYourData onExplore={() => setShowChartsModal(true)} />
+
             {/* Top Metric Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="glass-card p-5 rounded-xl space-y-2">
@@ -1382,6 +1388,13 @@ export default function MongoDashboard() {
         message={confirmModalState.message}
         confirmText={confirmModalState.confirmText}
         isDanger={confirmModalState.isDanger}
+      />
+      {/* CHARTS & TELEMETRY EXPLORER MODAL */}
+      <ChartsExplorerModal
+        isOpen={showChartsModal}
+        onClose={() => setShowChartsModal(false)}
+        serverStatus={serverStatus}
+        databases={databases}
       />
     </div>
   );
