@@ -48,7 +48,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "mongosh --quiet --direct --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'",
+          "mongosh --quiet \"mongodb://127.0.0.1:27017/?directConnection=true\" --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)'",
         ]
       interval: 30s
       timeout: 10s
